@@ -17,7 +17,7 @@ function NewsPage(props) {
     </Fragment>
   );
 }
-export async function getServerSideProps() {
+export async function getStaticProps() {
   const connectioString =
     "mongodb+srv://fikremariam:f%40mongodb807@cluster0.ntqn95a.mongodb.net/?retryWrites=true&w=majority";
   const client = await MongoClient.connect(connectioString);
@@ -39,6 +39,7 @@ export async function getServerSideProps() {
         };
       }),
     },
+    revalidate: 1,
   };
 }
 // export async function getStaticProps() {
