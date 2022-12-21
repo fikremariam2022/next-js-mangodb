@@ -1,0 +1,333 @@
+https://www.youtube.com/watch?v=MFuwkrseXVE
+Next.js Crash Course for Beginners 2021 - Learn NextJS from Scratch
+
+The  Difference between framework and library
+The technical difference between a framework and library lies in a term called inversion of control.
+
+When you use a library, you are in charge of the flow of the application. You are choosing when and where to call the library. When you use a framework, the framework is in charge of the flow. It provides some places for you to plug in your code, but it calls the code you plugged in as needed.
+Nextjs is the react framework for production.
+React-you still write react code, you still build react components and use react features (props,
+state, context..)
+Nextjs just enhances your react app and adds more feature.
+
+Framework- lots of builtin feature e.g. e.g. routing that helps you solve common problem and 
+clear guidance on how to use these features.
+
+Server side rendering - preparing all the content of a page on the server rather than on 
+client side.
+
+If it s a public facing app, SEO matters.
+If it s only reached by staffs through login, even search engines do not reachout so SEO doesn't matter
+
+If that page is pre-rendered on the server and if that data fetching could be made on the server
+when request hits that server,the finished page would be served to our users.
+This has advantage
+ - users will not have that firtering loading page
+ - search engines would see our page content
+
+After the initial page page, you still get the standard single page react app.
+
+Server side rendering - automatic page rerendering which is great for seo
+
+Routing
+
+Traditional react routing
+import Layout from './components/layout/layout'
+function App(){
+return (
+<Layout>
+ <Switch>
+  <Route path='/' exact>
+   <AllMeetupsPage>
+    
+   </Route>
+  <Route path='/favorite'>
+   <FavoritePage>
+    
+   </Route>
+ </Switch>
+</Layout>
+)
+
+Nextjs defines routes with files and folders instead of codes. Avoides routes in code.
+This lets us write less code.
+
+Nextjs has fullstack capability - it is easy to add the backend api with nodejs code
+
+
+========================
+creating a nextjs app
+npx create-next-app next-js-course
+
+package.json after creating the project
+{
+  "name": "next-js-course",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "13.0.6",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  }
+}
+--------------------
+
+Install Prettier Extension
+View -> Command Pallate -> write default format
+set Pretteir code formatter
+---------------------
+
+What does it takes for https://localhost:3000 to work,
+
+just simply have an index.js in pages folder
+and add a simple react code
+
+
+export default function HomePage() {
+  return <h1>Welcome, Home Page</h1>;
+}
+ 
+Now navigate to http://localhost:3000 and find the output
+
+or create new.js and add
+
+export default function NewsPage() {
+  return <h1>Welcome, NewsPage</h1>;
+}
+now navigate to http://localhost:3000/news
+See the file base routing system?
+-------------------------------------------
+
+Or alternatively, create news folder and move the news.js in here, rename it to index.js
+as expected same url http://localhost:3000/news works.
+
+Thus folders act as path segment
+Nested path is done throgh creating subfolders
+-----------------------------------------
+Nested path
+Lets creat a path for http://localhost:3000/news/[newsId]
+
+To do create a js file with any name in square bracket
+page/news/[newsId].js
+import { useRouter } from "next/router";
+
+function DetailPage() {
+  const router = useRouter();
+  const newsId = router.query.newsId;
+  return <h1>This is page of news ID: {newsId}</h1>;
+}
+export default DetailPage;
+---------------------------------------------
+alternatively you can create [newsId] folder and insisde an index.js page
+---------------------------------------------
+Navigating from page to page using links
+if you use a as link, page reload ll occur (see that the back btn of the browser is enabled)
+but what we need is we want to stay in that single page application.
+to do this use special component from react called link.
+
+This ll give us advantage to preserve states accross pages and a better experience for user.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------
+Static Pages
+if you want to render static page, you need to have the function getStaticProps that provide 
+static prop of the page. It is allowed to by synchronous
+
+Note:getStaticProps should return props object return {props: {prop1: val1, prop2: val2}}
+     every code in the function is run on the server, e.g. fetch data here and asign it to the props
+
+
+
+E.g. without using getStaticProps
+
+pages/index.js
+
+import {useState, useEffect} from 'react'
+
+import {MeetupList} from './../MeetupList'
+
+const HomePage = (props)=>{
+ const [meetups, setMeetups] = useState([])
+, 
+ useEffect(()=>{
+   const getMeetups = ()=>{
+   const res = await fetch('/url');
+   const data = await res.json();
+   setMeetups(data);
+  }
+    getMeetups();
+}, [])
+
+return (<MeetupList meetups={meetups} />)
+}
+---------------------------------------------------
+using getStaticProps you don't need to keep state b/s all the data is found from props
+
+function HomePage() {
+ return <MeetupList meetups= {props.meetups} />
+}
+
+export static function getStaticProps(){
+ const meetupData = []
+ //fetch the data here
+ return {
+    props: {meetups: meetupData}
+  }
+}
+
+export default HomePage
+====================================================
+
+Note the d/c in the first case when rendered, the list was empty, (you can see when u go to page
+source) only react then fetch the data in the client side and rendered to dom.
+In the static props case the data will be visible as you go to page source. b/s the data is pre-rendered
+
+npm run build
+
+see on the output details - tell us types of generated page
+lamda => Server side renders at runtime uses getInitialProps or getServersideProps
+o     => automatically rendered as static html uses no initial props
+dot   => automatically generated as static HTML + JSON (uses getStaticProps)
+  ISR  Incremental static generation  uses revalidate in getStaticProps
+
+Using ISR
+if data is subjected to change, re-generating and re-rendering is required so we use revalidate
+property to unlock ISR
+
+export static function getStaticProps(){
+ const meetupData = []
+ //fetch the data here
+ return {
+    props: {meetups: meetupData},
+    revalidate: 3600 //every hour check if data is changed and regenerate page
+  }
+}
+Note in the above we do not need to 
+
+Server side rendering
+=======================
+getServerSideProps let us generate data and page on server and render the html on every request.
+You can use in situations when you want to access context class to access req and res
+ or in situations where there is frequent change on data
+Note. The data is visible in the page source code
+
+
+export async function getServerSideProps(context) {
+ const req = context.req
+ const res = context.res
+
+ //fetch from API
+
+return {
+  props: {
+   meetups: DUMMY_MEETUP
+  }
+ }
+}
+
+Note context object also exist in getStaticProps but it does not contain the req object,
+so how do you capture the id from request? use context.params.id
+
+================
+getStaticPaths it is required whenever we use getStaticProps
+it tells nodejs that for which ids that we want to generate static pages,  and also if the list
+of ids doesnot contain thes ids, what to do (either the 404 response which is a fallback: false
+or try to regenerate the page - fallback: true)
+
+export const getStaticProps = async (context) => {
+  const res = await fetch(`${server}api/articles/${context.params.id}`);
+  const article = await res.json();
+  return { props: { article } };
+};
+export const getStaticPaths = async () => {
+  const res = await fetch(`${server}api/articles`);
+  const articles = await res.json();
+  const ids = articles.map((article) => {
+    return article.id;
+  });
+  const paths = ids.map((id) => {
+    return { params: { id: id.toString() } };
+  });
+
+  return { paths, fallback: false };
+};
+
+===================================
+
+===========================================
+_app.js 
+The _app. js file is the default App component that Next. js uses to initialize pages. 
+It serves as the starting point for all of your page's components. 
+
+You can wrapp it with Layout component to effect the layout in every page. This ll give next js
+the advantage over the other way that is doing the wrapping for every page.
+===========================================
+Programmatically navigating to a link
+import { useRouter } from "next/router";
+
+const MeetupItem = ({ id, title, content, imgUrl, published }) => {
+  const router = useRouter();
+
+  const showDetailHandler = () => {
+    router.push(`/meetup/${id}`);
+  };
+  return ( <button onClick={showDetailHandler}>Show detail</button>)
+
+===========================================
+If you want to have multiple adjacent JSX element, you might need to wrap it using Fragment component
+imported from react
+================================
+geting the id from route
+
+const MeetupItem = () {
+const router = useRouter();
+const showDetailHandler = () => {
+    router.push(`/meetup/${id}`);
+  };
+
+return (
+  
+      <div className={newsItemCss.action}>
+        <button onClick={showDetailHandler}>Show detail</button>
+      </div>
+    </div>
+  );
+
+}
+}
+
+========
+Then in the meetup/[newsId].js
+function DetailPage() {
+  const router = useRouter();
+  const newsId = router.query.newsId;
+  return <MeetupDetail id={newsId} />;
+}
+export default DetailPage;
+

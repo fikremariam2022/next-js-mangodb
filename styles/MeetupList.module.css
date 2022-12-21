@@ -1,0 +1,21 @@
+.grid {
+  display: grid;
+  gap: 30px;
+  grid-template-columns: repeat(3, auto);
+  align-items: flex-start;
+  justify-content: center;
+}
+@media (max-width: 968px) {
+  .grid {
+    width: 100%;
+    flex-direction: column;
+    grid-template-columns: repeat(2, auto);
+  }
+}
+@media (max-width: 600px) {
+  .grid {
+    width: 100%;
+    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,10 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px;
+}
+.container img {
+  width: 100% !important;
+  max-width: 700px;
+}
