@@ -331,3 +331,404 @@ function DetailPage() {
 }
 export default DetailPage;
 
+=====================================================================================================
+fetching instead of using the dummy data directly
+This requires you to import useState and useEffect
+
+//index.js
+import { useEffect } from "react";
+import { useState } from "react";
+import MeetupList from "../components/MeetupList";
+import { MEETUPS_DUMMY } from "../data";
+
+
+export default function NewsPage() {
+  const [loadedMeetupData, setLoadedMeetupData] = useState([]);
+  useEffect(() => {
+    setLoadedMeetupData([...MEETUPS_DUMMY]);
+  }, []);
+  return <MeetupList meetups={loadedMeetupData} />;
+}
+
+Thus instead of assigning the dummy data directly to prop (see in aboves) we only set it in useEffect and only after is asigned.
+The difference is that the data ll be loaded after rendered, when page is rendered no data was visible in page source code.
+The items are missed from html content, which is not good for the SEO.
+
+==========================================================================
+
+NEXTJS PRERENDERED PAGE
+
+request -> /some route/ -> return prerendered page -> Then hydrate with react code once loaded -> page ll be interactive
+
+TWO FORMS OF PRE-RENDERING - depends on when is the page content is generated
+
+1. Static Generation - page content will be generated when you BUILD the app for production.
+2.Server side Generation
+
+
+1. Static Generation
+By default Nextjs generate pages staticly, but if you want nextjs to fetch data before it generates the pages, you should call the following fns. These should
+only be called in page componenet file and not in any others.
+So through defining getStaticData, you can fetch data and asign it as static data before this component page is executed at build.
+You can also use this fn to do some secure tasks that should only be run on the surver. These include securely accessing file system, connecting to
+database.
+Thus in this way the data is only found from props and not from managed state. Thus state mgt is not required. useState and useEffect r not required.
+
+export default function NewsPage(props) {
+    return <MeetupList meetups={props.loadedMeetupData} />;
+}
+
+export async function getStaticProps(){
+ const meetupData = []
+ //fetch the data here
+ return {
+    props: {meetups: meetupData}
+  }
+}
+================================================================
+
+Revalidating 
+
+when the data we use is subjected to change, we have to regenerate the html pages. So we have to use revalidate attribute to tell after
+how much seconds the data change is validated. When we use this revalidate attribute to the return object of getStaticProps, we just
+unlock the INCREMENTAL STATIC GENERATION ISG feature of nextjs.
+
+If you want to fetch the data on the fly on every request, then use getServerSideProps. it is similar to getStaticProps but code is executed
+on every request. This is also run only on the server, no code will be sent to the client. Since page is loaded dynamically, parameters are
+found from req object in the context property
+export async function getServerSideProps(context) {
+const {req, res}=context
+const id = req.params.id
+  //fetch data
+  return {
+    props: {
+      loadedMeetupData: MEETUPS_DUMMY,
+    },
+  };
+}
+
+
+Note both getStaticProps and getServerSideProps do genrerate the html on server side and send it to the client. They are equally good for SEO.	
+getStaticProps is faster for user experience b/s page is cashed and reused.
+=================================================================
+
+You can find static data and pass to props statically. But how can you get the id requested? The following example ll get the requested id
+
+function DetailPage({ id }) {
+  return <MeetupDetail id={id} />;
+}
+
+
+export default DetailPage;
+
+
+//provide how to find the id
+export async function getStaticProps(context) {
+  const { meetupId } = context.params;
+  return {
+    props: { id: meetupId },
+  };
+}
+
+//provides collection of parameter objects that include id (or meetupId ..name it whatever) , and what should be done if the id from request doen't included in these parameters-fallback
+export async function getStaticPaths() {
+  return {
+    paths: [{ params: { meetupId: "1" } }, { params: { meetupId: "2" } }],
+    fallback: false,
+  };
+}
+
+Now let's automatically fetch the meetupIds
+
+function DetailPage({ id }) {
+  return <MeetupDetail id={id} />;
+}
+export default DetailPage;
+
+export async function getStaticProps(context) {
+  const { meetupId } = context.params;
+  return {
+    props: { id: meetupId },
+  };
+}
+export async function getStaticPaths() {
+  const data = MEETUPS_DUMMY.map((meetup) => {
+    return { params: { meetupId: meetup.id.toString() } };
+  });
+  return {
+    paths: data,
+    fallback: false,
+  };
+}
+
+Note 1 in getStaticProps context doesn t contain req object but params object
+     2. getStaticPaths is a function that u need to provide if the page is dynamic and still use getStaticProps
+     3. fallback=false means I have provided all possible ids or params so if request contain anyother redirect it to 404. The opposite ll
+     2. In the above example, once we get the ids we could fetch the object from db and assign the object to props
+
+==================================================================================================================
+------------------------------------------------------------------------------------------------------------------
+
+API API API
+
+suppose you want to serve api/new-meetup  route
+if so in the api folder create new-meetup.js (or new-meetup folder inside index.js)
+the create and export a handler function
+
+function handler(req, res) {
+  if (req.method === "POST") {
+    const data = req.body;
+    //post data
+    res.status(200).json({ message: "OK" });
+  }
+  const id = req.params.id;
+  res.status(200).json({ message: "OK" });
+}
+export default handler;
+
+
+
+USING THE MONGODB
+
+
+npm install mongodb
+go to mongodb, create account, create clustor.
+click on database, connection, nodejs, then copy connection string
+preparing the api
+//api/new-meetup
+import { MongoClient } from "mongodb";
+async function handler(req, res) {
+  if (req.method === "POST") {
+    const data = req.body;
+    //post data
+
+    // const id = req.params.id;
+    const connectionString =
+      "mongodb+srv://fikremariam:f%40mongodb807@cluster0.ntqn95a.mongodb.net/?retryWrites=true&w=majority";
+    const client = await MongoClient.connect(connectionString);
+    const db = client.db();
+    const meetupCollection = db.collection("meetups");
+    const result = await meetupCollection.insertOne(data);
+    console.log(result);
+    res.status(202).json({ message: "OK", data: { ...data, id: result._id } });
+    client.close();
+    res.end();
+  }
+
+
+
+using the api in the form
+
+import { server } from "../config";
+import newMeetupStyle from "../styles/NewMeetupForm.module.css";
+import { useState } from "react";
+import { MEETUPS_DUMMY } from "../data";
+import { useRouter } from "next/router";
+const NewMeetupForm = () => {
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [imgUrl, setImgUrl] = useState("");
+  const [content, setContent] = useState("");
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const date = new Date().getDate().toString();
+    const data = { title, imgUrl, content, date };
+    const res = await fetch(`${server}/api/new-meetup`, {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Content-Type": "application/json" },
+    });
+    if (res.ok) {
+      resetState();
+    } else {
+      console.log(res.statusText);
+      alert(res.statusText);
+    }
+
+    //router.push("/");
+  };
+  function resetState() {
+    setTitle("");
+    setImgUrl("");
+    setContent("");
+  }
+  return (
+    <div className={newMeetupStyle.container}>
+      <form className={newMeetupStyle.form}>
+        <label>Meetup Title:</label>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          type="text"
+        />
+
+        <label>URL for image:</label>
+        <input
+          value={imgUrl}
+          onChange={(e) => setImgUrl(e.target.value)}
+          type="text"
+        />
+
+        <label>Content:</label>
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          type="text"
+        />
+        <button onClick={handleSubmit}>Save</button>
+      </form>
+    </div>
+  );
+};
+
+export default NewMeetupForm;
+
+//config/index.js
+const server =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://myserver.com";
+export { server };
+=======================
+Note to navigate away from the current page you can use router.replace('/'). This protect the user from returning back. Or router.push('/')
+
+===============================================
+
+if you import something, and use it in the getStaticProps or getServerSideprops, the import will not be bundled to the client. This is nice for
+the app bundlesize.
+
+//getting data from mongodb
+You can fetch data from db and asign it to static props replacing with dummy data
+
+import { MongoClient } from "mongodb";
+import MeetupList from "../components/MeetupList";
+import { MEETUPS_DUMMY } from "../data";
+function NewsPage(props) {
+  return <MeetupList meetups={props.loadedMeetupData} />;
+}
+export async function getServerSideProps() {
+  const connectioString =
+    "mongodb+srv://fikremariam:f%40mongodb807@cluster0.ntqn95a.mongodb.net/?retryWrites=true&w=majority";
+  const client = await MongoClient.connect(connectioString);
+  const db = client.db();
+  const meetupCollection = db.collection("meetups");
+  const meetups = await meetupCollection.find().toArray();
+
+  client.close();
+  //console.log(meetups);
+  return {
+    props: {
+      loadedMeetupData: meetups.map((meetup) => {
+        return {
+          id: meetup._id.toString(),
+          title: meetup.title,
+          content: meetup.content,
+          published: meetup.published,
+          imgUrl: meetup.imgUrl,
+        };
+      }),
+    },
+  };
+}
+
+
+export default NewsPage;
+========================================================
+
+fetching a specific record filtering by keys
+
+import { MongoClient, ObjectId } from "mongodb";
+import { MEETUPS_DUMMY } from "../../data";
+import { useRouter } from "next/router";
+import MeetupDetail from "../../components/MeetupDetail";
+
+function DetailPage(props) {
+  return <MeetupDetail meetup={props.meetup} />;
+}
+export default DetailPage;
+
+export async function getStaticProps(context) {
+  const { meetupId } = context.params;
+  const connectioString =
+    "mongodb+srv://fikremariam:f%40mongodb807@cluster0.ntqn95a.mongodb.net/?retryWrites=true&w=majority";
+  const client = await MongoClient.connect(connectioString);
+  const db = client.db();
+  const meetupCollection = db.collection("meetups");
+  const meetup = await meetupCollection.findOne({
+    _id: new ObjectId(meetupId),
+  });
+ 
+  return {
+    props: { meetup: JSON.parse(JSON.stringify(meetup)) },
+  };
+}
+export async function getStaticPaths() {
+  const connectioString =
+    "mongodb+srv://fikremariam:f%40mongodb807@cluster0.ntqn95a.mongodb.net/?retryWrites=true&w=majority";
+  const client = await MongoClient.connect(connectioString);
+  const db = client.db();
+  const meetupCollection = db.collection("meetups");
+  const meetups = await meetupCollection.find().toArray();
+  client.close();
+  const data = meetups.map((meetup) => {
+    return { params: { meetupId: meetup._id.toString() } };
+  });
+  return {
+    paths: data,
+    fallback: false,
+  };
+}
+
+
+============================================
+SEO OPTIMIZATION WITH ADDING HEAD
+
+to add head, import Head component from next/head, then add title and meta
+Note the description part is the one google displays in the lists of search result by users
+
+....
+import Head from "next/head";
+import { Fragment } from "react";
+function NewsPage(props) {
+  return (
+    <Fragment>
+      <Head>
+        <title>React Meetups</title>
+        <meta
+          name="description"
+          content="Browse a huge list of highly active react meetups!"
+        ></meta>
+      </Head>
+      <MeetupList meetups={props.loadedMeetupData} />
+    </Fragment>
+  );
+}
+================
+You have to do this for every page e.g. for detail page
+
+function DetailPage(props) {
+  return (
+    <Fragment>
+      <Head>
+        <title>{props.meetup.title}</title>
+        <meta name="description" content={props.meetup.content}></meta>
+      </Head>
+      <MeetupDetail meetup={props.meetup} />
+    </Fragment>
+  );
+}
+export default DetailPage;
+
+==================================================
+DEPLOYMENT 
+using vercel, 
+vercel is developed by the same team that develp nodejs
+
+go to https://vercel.com
+signup with Github
+select rep
+
+the default config is enought so click deploy
+----------------------
+when you say fallback = true or blocking you mean the least of paths you specified is not exhasting, there might be more. In this case next js
+regenerate the page rather than responding 404
